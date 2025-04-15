@@ -1,0 +1,374 @@
+
+# opensearch:
+#   enabled: true
+#   image:
+#     registry: docker.io
+#     repository: opensearchproject/opensearch
+#     tag: 2.15.0
+#   resources:
+#     requests:
+#       cpu: "0.1"
+#       memory: 128Mi
+#     limits:
+#       cpu: "1"
+#       memory: 1500Mi
+#   persistence:
+#     enabled: false
+#     size: 10Gi
+#     storageClassName: standard
+
+
+rbac:
+  create: true
+  resources:
+    - pods
+    - secrets
+
+serviceAccount:
+  create: true
+  name:
+  annotations: {}
+
+tags:
+  install-opensearch: true
+  install-mongodb: true
+
+imagePullSecrets: []
+
+graylog:
+  ## Graylog image version
+  ## Ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+  ##
+  ## Important note: Official Graylog Docker image may replace the existing Docker image tags and cause some corrupt when starting the pod.
+  ## Make sure you strict with the `x` version of Graylog where `x` is ${version}-${x}
+  ##
+  image:
+    repository: "graylog/graylog"
+    tag: "5.2.6"
+    pullPolicy: "IfNotPresent"
+
+  ## Graylog default Java option
+  # javaOpts: "-Dlog4j2.formatMsgNoLookups=true -Djdk.tls.acknowledgeCloseNotify=true -XX:+UnlockExperimentalVMOptions -XX:-OmitStackTraceInFastThrow -XX:+UseG1GC -server"
+  javaOpts: "-Dlog4j2.formatMsgNoLookups=true -Djdk.tls.acknowledgeCloseNotify=true -XX:+UnlockExperimentalVMOptions -XX:-OmitStackTraceInFastThrow -XX:+UseG1GC -server"
+
+  replicas: 1
+
+  env: {}
+
+  customLabels: {}
+
+  ## Additional environment variables in raw yaml format
+  ## - name: POD_IP
+  ##   valueFrom:
+  ##     fieldRef:
+  ##       fieldPath: status.podIP
+  ## - name: SERVICE_8000_NAME
+  ##   value: servicename
+  envRaw: {}
+  affinity: {}
+
+
+  tolerations: []
+  nodeSelector: {}
+  podAnnotations: {}
+
+  podSecurityContext:
+    fsGroup: 1100
+    fsGroupChangePolicy: Always
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    runAsUser: 1100
+    runAsGroup: 1100
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # readOnlyRootFilesystem: true
+    # runAsNonRoot: true
+    # runAsUser: 1000
+
+  persistence:
+    enabled: false
+    accessMode: ReadWriteOnce
+    size: "20Gi"
+    storageClass: "ssd"
+
+  plugins:
+    proxy:
+      enabled: false
+      host: http://your.proxy.host:8080
+
+    locations: []
+    # - name: graylog-plugin-slack-notification-4.1.1.jar
+    #   url: https://github.com/KongZ/graylog-plugin-slack-notification/releases/download/v4.1.1/graylog-plugin-slack-notification-4.1.1.jar
+    # - name: graylog-plugin-function-check-diff-1.0.1.jar
+    #   url: https://github.com/KongZ/graylog-plugin-function-check-diff/releases/download/v1.0.1/graylog-plugin-function-check-diff-1.0.1.jar
+    # - name: graylog-plugin-google-cloud-pubsub-1.0.4.jar
+    #   url: https://github.com/KongZ/graylog-plugin-google-cloud-pubsub/releases/download/v1.0.4/graylog-plugin-google-cloud-pubsub-1.0.4.jar
+    # - name: graylog-plugin-auth-sso-3.3.0.jar
+    #   url: https://github.com/Graylog2/graylog-plugin-auth-sso/releases/download/3.3.0/graylog-plugin-auth-sso-3.3.0.jar
+
+
+  sidecarContainers: []
+  extraInitContainers: []
+  extraVolumeMounts: []
+  extraVolumes: []
+  extraVolumeClaimTemplates: []
+  service:
+    type: ClusterIP
+    port: 9000
+    ports: []
+
+    headless:
+      suffix: ""
+
+    master:
+      enabled: true
+      annotations: {}
+      port: 9000
+      type: ClusterIP
+
+  startupProbe:
+    periodSeconds: 60
+    failureThreshold: 3
+    successThreshold: 1
+    timeoutSeconds: 5
+
+  livenessProbe:
+    initialDelaySeconds: 0
+    periodSeconds: 30
+    failureThreshold: 3
+    successThreshold: 1
+    timeoutSeconds: 5
+
+  readinessProbe:
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    failureThreshold: 3
+    successThreshold: 1
+    timeoutSeconds: 5
+
+  input:
+    {}
+    # tcp:
+    #   service:
+    #     name: your-tcp-service-name
+    #     type: LoadBalancer
+    #     loadBalancerIP:
+    #   ports:
+    #     - name: gelf
+    #       port: 12222
+    # udp:
+    #   service:
+    #     name: your-udp-service-name
+    #     type: ClusterIP
+    #   ports:
+    #     - name: syslog
+    #       port: 12222
+
+  tls:
+    enabled: false
+
+    keyFile: /etc/graylog/server/server.key
+    certFile: /etc/graylog/server/server.cert
+
+  externalUri: ""
+
+  ingress:
+    enabled: false
+    annotations: {}
+    labels: {}
+    ingressClassName: ""
+
+    hosts: []
+    #  - graylog.yourdomain.com
+    extraPaths: []
+
+    tls: []
+    #   - secretName: graylog-server-tls
+    #     hosts:
+    #       - graylog.yourdomain.com
+    pathType: Prefix
+
+    path: /
+
+  resources:
+    limits:
+      cpu: "1"
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+
+  heapSize: "2g"
+
+  updateStrategy: RollingUpdate
+
+  podDisruptionBudget:
+    create: false
+    minAvailable: 1
+    maxUnavailable: 0
+  terminationGracePeriodSeconds: 120
+
+  metrics:
+    enabled: false
+    serviceMonitor:
+      enabled: false
+      additionalLabels: {}
+      scrapeTimeout: 10s
+      interval: 10s
+
+  geoip:
+    enabled: false
+    mmdbUri: ""
+
+  rootUsername: "admin"
+
+  ## Graylog root password
+  ## Defaults to a random 16-character alphanumeric string if not set
+  ##
+  # rootPassword: ""
+  rootEmail: ""
+  rootTimezone: "UTC"
+  existingRootSecret: ""
+
+  opensearch:
+    ## Major version of the Elasticsearch version used.
+    ## It is required by Graylog 4. See https://docs.graylog.org/en/4.0/pages/configuration/elasticsearch.html#available-elasticsearch-configuration-tunables
+    version: "7"
+    hosts: ""
+    uriSecretName: ""
+    uriSecretKey: ""
+    uriSSL: false
+
+  mongodb:
+    ## MongoDB connection string
+    ## See https://docs.mongodb.com/manual/reference/connection-string/ for details
+    # uri: mongodb://user:pass@host1:27017,host2:27017,host3:27017/graylog?replicaSet=rs01
+    uri: ""
+    uriSecretName: ""
+    uriSecretKey: ""
+
+    ## Increase this value according to the maximum connections your MongoDB server can handle from a single client
+    ## if you encounter MongoDB connection problems.
+    ##
+    maxConnections: 1000
+
+  transportEmail:
+    enabled: false
+    hostname: ""
+    port: 2587
+    useAuth: true
+    useTls: true
+    useSsl: false
+    authUsername: ""
+    authPassword: ""
+    subjectPrefix: "[graylog]"
+    fromEmail: ""
+
+  # config: |
+  #   elasticsearch_connect_timeout = 10s
+  #   elasticsearch_socket_timeout = 60s
+  #   elasticsearch_idle_timeout = -1s
+
+  journal:
+    deleteBeforeStart: false
+    maxSize: 1gb
+
+  init:
+    image:
+      repository: "alpine"
+      pullPolicy: "IfNotPresent"
+    env: {}
+    resources: {}
+
+  serverFiles:
+    {}
+    # server.key: |
+    # server.cert: |
+
+  ## Configure whether Graylog pods should log in JSON (one event per line)
+  logInJson: false
+
+  provisioner:
+    enabled: false
+    annotations: {}
+    useGraylogServiceAccount: false
+    # script: |
+    #  json='{
+    #    "username_header": "X-Auth-Request-User",
+    #    "fullname_header": "X-Auth-Request-User",
+    #    "email_header": "X-Auth-Request-Email",
+    #    "default_group": "Admin",
+    #    "auto_create_user": true,
+    #    "require_trusted_proxies": true,
+    #    "trusted_proxies": "0.0.0.0/0",
+    #    "default_email_domain": "mydomain.com",
+    #    "sync_roles": false,
+    #    "roles_header": "Roles"
+    #  }'
+    #  curl -v -u "admin:$GRAYLOG_PASSWORD_SECRET" -X PUT --header 'Content-Type: application/json' --header 'X-Requested-By: localhost' --data-binary "${json}" http://graylog-master:9000/api/plugins/org.graylog.plugins.auth.sso/config
+
+    ## Additional environment variables to be added to Graylog provisioner job
+    ##
+    env: {}
+    envRaw: {}
+
+  secret:
+    annotations: {}
+
+  options:
+    allowHighlighting: false
+    allowLeadingWildcardSearches: false
+
+    ## Size of internal ring buffers.
+    ## Must be a power of 2. (512, 1024, 2048, …)
+    ringSize: ""
+    inputBufferRingSize: ""
+    gc_warning_threshold: 1s
+    outputbufferProcessors: 3
+    inputbufferProcessors: 2
+    processbufferProcessors: 5
+
+opensearch:
+  enabled: true
+  extraEnvs:
+    - name: plugins.security.ssl.http.enabled
+      value: "false"
+    - name: plugins.security.disabled
+      value: "true"
+  opensearchJavaOpts: "-Xmx128M -Xms128M"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "100Mi"
+    limits:
+      cpu: "1000m"
+      memory: "512Mi"
+  # volumeClaimTemplate:
+  #   resources:
+  #     requests:
+  #       storage: 30Gi # default 30Gi
+
+# Specify Mongodb settings. Ignore this section if you install MongoDB manually.
+mongodb:
+  architecture: "replicaset"
+  useStatefulSet: true
+  replicaCount: 1
+  persistence: false
+  auth:
+    enabled: false
+  image:
+    registry: docker.io
+    repository: bitnami/mongodb
+    tag: 4.4.10-debian-10-r44
+  resources:
+    requests:
+      cpu:  "0.1"
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 1500Mi    
