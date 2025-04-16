@@ -8,4 +8,4 @@ appVersion: "6.2.0"
 dependencies:
   - name: mongodb
     version: 13.15.1
-    repository: https://charts.bitnami.com/bitnami
+    repository: "file://charts/mongodb-13.15.1.tgz"
