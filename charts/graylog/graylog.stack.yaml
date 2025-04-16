@@ -1,23 +1,3 @@
-
-# opensearch:
-#   enabled: true
-#   image:
-#     registry: docker.io
-#     repository: opensearchproject/opensearch
-#     tag: 2.15.0
-#   resources:
-#     requests:
-#       cpu: "0.1"
-#       memory: 128Mi
-#     limits:
-#       cpu: "1"
-#       memory: 1500Mi
-#   persistence:
-#     enabled: false
-#     size: 10Gi
-#     storageClassName: standard
-
-
 rbac:
   create: true
   resources:
@@ -30,7 +10,6 @@ serviceAccount:
   annotations: {}
 
 tags:
-  install-opensearch: true
   install-mongodb: true
 
 imagePullSecrets: []
@@ -43,8 +22,8 @@ graylog:
   ## Make sure you strict with the `x` version of Graylog where `x` is ${version}-${x}
   ##
   image:
-    repository: "graylog/graylog"
-    tag: "5.2.6"
+    repository: "graylog/graylog-enterprise"
+    tag: "6.2.0-rc.1-1"
     pullPolicy: "IfNotPresent"
 
   ## Graylog default Java option
@@ -64,9 +43,31 @@ graylog:
   ##       fieldPath: status.podIP
   ## - name: SERVICE_8000_NAME
   ##   value: servicename
-  envRaw: {}
-  affinity: {}
-
+  envRaw:
+    - name: GRAYLOG_DATANODE_ENABLED
+      value: "true"
+    - name: GRAYLOG_DATANODE_URI
+      value: "http://your-datanode-service:8999"
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: agentpool
+            operator: In
+            values:
+              - somenode
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - somenode
+          topologyKey: "kubernetes.io/hostname"
 
   tolerations: []
   nodeSelector: {}
@@ -102,16 +103,9 @@ graylog:
       enabled: false
       host: http://your.proxy.host:8080
 
-    locations: []
-    # - name: graylog-plugin-slack-notification-4.1.1.jar
-    #   url: https://github.com/KongZ/graylog-plugin-slack-notification/releases/download/v4.1.1/graylog-plugin-slack-notification-4.1.1.jar
-    # - name: graylog-plugin-function-check-diff-1.0.1.jar
-    #   url: https://github.com/KongZ/graylog-plugin-function-check-diff/releases/download/v1.0.1/graylog-plugin-function-check-diff-1.0.1.jar
-    # - name: graylog-plugin-google-cloud-pubsub-1.0.4.jar
-    #   url: https://github.com/KongZ/graylog-plugin-google-cloud-pubsub/releases/download/v1.0.4/graylog-plugin-google-cloud-pubsub-1.0.4.jar
-    # - name: graylog-plugin-auth-sso-3.3.0.jar
-    #   url: https://github.com/Graylog2/graylog-plugin-auth-sso/releases/download/3.3.0/graylog-plugin-auth-sso-3.3.0.jar
-
+    locations:
+      - name: graylog-plugin-auth-sso-3.3.0.jar
+        url: https://github.com/Graylog2/graylog-plugin-auth-sso/releases/download/3.3.0/graylog-plugin-auth-sso-3.3.0.jar
 
   sidecarContainers: []
   extraInitContainers: []
@@ -235,15 +229,6 @@ graylog:
   rootTimezone: "UTC"
   existingRootSecret: ""
 
-  opensearch:
-    ## Major version of the Elasticsearch version used.
-    ## It is required by Graylog 4. See https://docs.graylog.org/en/4.0/pages/configuration/elasticsearch.html#available-elasticsearch-configuration-tunables
-    version: "7"
-    hosts: ""
-    uriSecretName: ""
-    uriSecretKey: ""
-    uriSSL: false
-
   mongodb:
     ## MongoDB connection string
     ## See https://docs.mongodb.com/manual/reference/connection-string/ for details
@@ -251,10 +236,6 @@ graylog:
     uri: ""
     uriSecretName: ""
     uriSecretKey: ""
-
-    ## Increase this value according to the maximum connections your MongoDB server can handle from a single client
-    ## if you encounter MongoDB connection problems.
-    ##
     maxConnections: 1000
 
   transportEmail:
@@ -333,25 +314,6 @@ graylog:
     inputbufferProcessors: 2
     processbufferProcessors: 5
 
-opensearch:
-  enabled: true
-  extraEnvs:
-    - name: plugins.security.ssl.http.enabled
-      value: "false"
-    - name: plugins.security.disabled
-      value: "true"
-  opensearchJavaOpts: "-Xmx128M -Xms128M"
-  resources:
-    requests:
-      cpu: "100m"
-      memory: "100Mi"
-    limits:
-      cpu: "1000m"
-      memory: "512Mi"
-  # volumeClaimTemplate:
-  #   resources:
-  #     requests:
-  #       storage: 30Gi # default 30Gi
 
 # Specify Mongodb settings. Ignore this section if you install MongoDB manually.
 mongodb:
@@ -372,3 +334,70 @@ mongodb:
     limits:
       cpu: "1"
       memory: 1500Mi    
+
+datanode:
+  enabled: true
+  image:
+    repository: graylog/graylog-datanode
+    tag: "6.2"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+  env:
+    - name: GRAYLOG_DATANODE_NODE_ID_FILE
+      value: "/usr/share/graylog-datanode/config/node-id"
+    - name: GRAYLOG_DATANODE_PASSWORD_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: graylog-secret
+          key: password-secret
+    - name: GRAYLOG_DATANODE_MONGODB_URI
+      valueFrom:
+        secretKeyRef:
+          name: graylog-secret
+          key: mongodb-uri
+    - name: GRAYLOG_DATANODE_ELASTICSEARCH_USERNAME
+      value: "admin"
+    - name: GRAYLOG_DATANODE_ELASTICSEARCH_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: graylog-secret
+          key: elastic-password
+    - name: GRAYLOG_DATANODE_MONGODB_DATABASE
+      value: "graylog"
+    - name: GRAYLOG_DATANODE_NODE_ROLES
+      value: "data"
+    - name: GRAYLOG_DATANODE_ENABLE_TIERED_STORAGE
+      value: "false"
+    - name: GRAYLOG_DATANODE_HTTP_BIND_ADDRESS
+      value: "0.0.0.0:8999"
+    - name: GRAYLOG_DATANODE_HTTP_PUBLISH_URI
+      value: "http://localhost:8999"
+    - name: GRAYLOG_DATANODE_HTTP_ENABLE_TLS
+      value: "false"
+    - name: GRAYLOG_DATANODE_PROCESSING_WORKERS
+      value: "4"
+    - name: GRAYLOG_DATANODE_INDEXING_MAX_CONCURRENCY
+      value: "2"
+    - name: GRAYLOG_DATANODE_SEARCH_MAX_CONCURRENCY
+      value: "2"
+    - name: GRAYLOG_DATANODE_LOG_LEVEL
+      value: "INFO"
+    - name: GRAYLOG_DATANODE_PROMETHEUS_EXPORTER_ENABLED
+      value: "false"
+    - name: GRAYLOG_DATANODE_SEARCH_BACKEND
+      value: "opensearch"
+    - name: GRAYLOG_DATANODE_WEB_ENABLE
+      value: "true"
+    - name: GRAYLOG_DATANODE_FEATURE_LOCAL_SEARCH
+      value: "true"
+    - name: GRAYLOG_DATANODE_FEATURE_CACHEABLE_QUERIES
+      value: "false"
+  persistence:
+    enabled: true
+    size: 30Gi
+    storageClass: "ssd"
