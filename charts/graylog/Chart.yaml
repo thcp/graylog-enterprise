@@ -9,6 +9,3 @@ dependencies:
   - name: mongodb
     version: 13.15.1
     repository: https://charts.bitnami.com/bitnami
-  - name: opensearch
-    version: 2.15.1
-    repository: https://opensearch-project.github.io/helm-charts/
